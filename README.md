@@ -19,7 +19,6 @@ Example usage:
 
 ```erlang
 % Decode an incoming binary, return the message
-{ok, {Msg, RestBin}} =
 case mqtt_packet_map:decode(Bin) of
     {ok, {Msg, RestBin}} ->
         % Decoded a packet, RestBin contains the

@@ -72,7 +72,7 @@ make test
 
 Sample output:
 
-```bash
+```
 ./rebar3 ct --config rebar.test.config
 ===> Verifying dependencies...
 ===> Compiling mqtt_packet_map
@@ -102,7 +102,7 @@ Below is the list of packet types and their fields.
 
 Fields that are omitted are set to their defaults.
 
-For example, `reason_code`, `qos, and `packet_id` will
+For example, `reason_code`, `qos`, and `packet_id` will
 all default to `0`.
 
 Some fields, like the topic for publish, are obligatory.
@@ -118,11 +118,11 @@ When encoding, both a binary and a list are accepted.
 So the following are acceptable topics for the encoder:
 
  * `<<"foo/bar">>`
- * `[ <<"foo">> | <<"bar">> ]
+ * `[ <<"foo">> | <<"bar">> ]`
 
 Which are both decoded as:
 
- * `[ <<"foo">> | <<"bar">> ]
+ * `[ <<"foo">> | <<"bar">> ]`
 
 
 Properties
@@ -174,9 +174,7 @@ CONNECT
 Minimal:
 
 ```Erlang
-#{
-    type => connect
-}
+#{ type => connect }
 ```
 
 Complete:
@@ -208,9 +206,7 @@ CONNACK
 Minimal:
 
 ```Erlang
-#{
-    type = connack
-}
+#{ type = connack }
 ```
 
 Complete:
@@ -263,10 +259,8 @@ These for packets are the same. Only the type code is different.
 Minimal:
 
 ```Erlang
-#{
-    % Type is one of: puback, pubrec, pubrel, or pubcomp
-    type = puback
-}
+% Type is one of: puback, pubrec, pubrel, or pubcomp
+#{ type = puback }
 ```
 
 Complete:
@@ -450,9 +444,7 @@ The default reason code for disconnects is `0`.
 Minimal:
 
 ```Erlang
-#{
-    type => disconnect
-}
+#{ type => disconnect }
 ```
 
 Complete:
@@ -473,9 +465,7 @@ AUTH
 Minimal:
 
 ```Erlang
-#{
-    type => auth
-}
+#{ type => auth }
 ```
 
 Complete:

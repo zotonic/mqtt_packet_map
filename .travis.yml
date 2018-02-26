@@ -9,7 +9,7 @@ jobs:
       script: skip
       deploy:
         provider: script
-        script: "bash -c 'source <(curl -s https://raw.githubusercontent.com/zotonic/hexpub/master/hexpub.sh)'"
+        script: ./hex.sh
         skip_cleanup: true
         on:
           tags: true

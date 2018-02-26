@@ -1,0 +1,15 @@
+language: erlang
+otp_release:
+  - 20.2
+  - 19.0
+script: make clean test
+sudo: false
+branches:
+  only:
+    - master
+notifications:
+  email:
+    recipients:
+      - zotonic-commits@googlegroups.com
+    on_success: change #[always|never|change] # default: change
+    on_failure: always #[always|never|change] # default: always

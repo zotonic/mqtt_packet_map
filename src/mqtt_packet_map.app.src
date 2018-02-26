@@ -1,0 +1,11 @@
+{application, mqtt_packet_map, [
+    {description, "MQTT v5 packet encoder and decoder"},
+    {vsn, "1.0.0-alpha1"},
+    {registered, []},
+    {applications, [ kernel, stdlib ]},
+    {env, []},
+    {modules, []},
+    {maintainers, ["Zotonic Team"]},
+    {licenses, ["Apache 2.0"]},
+    {links, [ {"GitHub","https://github.com/zotonic/mqtt_packet_map"} ]}
+]}.

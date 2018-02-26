@@ -489,6 +489,3 @@ License
 This library is licensed under the Apache License version 2.0.
 
 See the LICENSE file.
-
-
-

@@ -207,7 +207,7 @@ serialize_subscribe_topic(#{ topic := Name } = T) ->
         topic_bin(Name),
         << 0:2, RH:2, RAP:1, NL:1, QoS:2 >>
     ];
-serialize_subscribe_topic(T) when is_binary(T) ->
+serialize_subscribe_topic(T) when is_binary(T); is_list(T) ->
     serialize_subscribe_topic(#{ topic => T }).
 
 serialize_unsubscribe_topics(Topics) ->

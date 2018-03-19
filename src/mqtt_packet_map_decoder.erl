@@ -236,6 +236,12 @@ variable(MQTTVersion, <<?DISCONNECT:4, 0:4>>, <<Reason:8, Rest/binary>>) ->
         reason_code => Reason,
         properties => Properties
     }};
+variable(?MQTTv5, <<?AUTH:4, 0:4>>, <<>>) ->
+    {ok, #{
+        type => 'auth',
+        reason_code => 0,
+        properties => #{}
+    }};
 variable(?MQTTv5, <<?AUTH:4, 0:4>>, <<Reason:8, Rest/binary>>) ->
     {Properties, <<>>} = parse_properties(Rest),
     {ok, #{

@@ -180,10 +180,17 @@ encode(MQTTVersion, #{ type := disconnect } = Msg) ->
     end,
     packet(<<?DISCONNECT:4, 0:4>>, Variable);
 encode(?MQTTv5, #{ type := auth } = Msg) ->
-    Variable = [
-        << (maps:get(reason_code, Msg, 0)):8 >>,
-        serialize_properties(Msg)
-    ],
+    ReasonCode = maps:get(reason_code, Msg, 0),
+    Properties = maps:get(properties, Msg, #{}),
+    Variable = case {ReasonCode, Properties} of
+        {0, #{}} ->
+            <<>>;
+        _ ->
+            [
+                << (maps:get(reason_code, Msg, 0)):8 >>,
+                serialize_properties(Msg)
+            ]
+    end,
     packet(<<?AUTH:4, 0:4>>, Variable).
 
 

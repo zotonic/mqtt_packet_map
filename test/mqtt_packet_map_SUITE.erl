@@ -519,7 +519,7 @@ disconnect_v5(_Config) ->
     ok.
 
 auth_v5(_Config) ->
-    {ok, B} = mqtt_packet_map:encode( #{ type => auth } ),
+    {ok, <<16#f0, 0>> = B} = mqtt_packet_map:encode( #{ type => auth } ),
     {ok, {M, <<>>}} = mqtt_packet_map:decode(B),
     #{
         type := auth,

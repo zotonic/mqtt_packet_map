@@ -9,6 +9,7 @@ compile_commands.json
 
 _build
 _checkouts
+ebin
 
 *~
 *#
@@ -26,3 +27,4 @@ _checkouts
 *.mo
 
 .DS_Store
+.rebar3

@@ -332,7 +332,15 @@ parse_property(<<16#09, Bin/binary>>, Props) ->
     parse_property(Rest, Props#{ 'correlation_data' => Val });
 parse_property(<<16#0B, Bin/binary>>, Props) ->
     {Val, Rest} = parse_varint(Bin),
-    parse_property(Rest, Props#{ 'subscription_identifier' => Val });
+    Props1 = case maps:get('subscription_identifier', Props, undefined) of
+        undefined ->
+            Props#{ 'subscription_identifier' => Val };
+        Vs when is_list(Vs) ->
+            Props#{ 'subscription_identifier' => Vs ++ [ Val ] };
+        V when is_integer(V) ->
+            Props#{ 'subscription_identifier' => [ V, Val ] }
+    end,
+    parse_property(Rest, Props1);
 parse_property(<<16#11, Val:32/big, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'session_expiry_interval' => Val });
 parse_property(<<16#12, Bin/binary>>, Props) ->

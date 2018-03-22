@@ -254,6 +254,22 @@ publish_v5(_Config) ->
         qos := 0,
         packet_id := undefined
     } = M2,
+    % Multiple subscription identifiers
+    {ok, B3} = mqtt_packet_map:encode( #{
+        type => publish,
+        topic => [ <<"foo">>, <<"bar">>, <<"la">> ],
+        properties => #{
+            subscription_identifier => [ 1, 2, 3 ]
+        }
+    } ),
+    {ok, {M3, <<>>}} = mqtt_packet_map:decode(B3),
+    #{
+        type := publish,
+        topic := [ <<"foo">>, <<"bar">>, <<"la">> ],
+        properties := #{
+            subscription_identifier := [ 1, 2, 3 ]
+        }
+    } = M3,
     ok.
 
 puback_et_al_v5(_Config) ->

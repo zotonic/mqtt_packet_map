@@ -265,6 +265,8 @@ serprop(message_expiry_interval, Val) when ?i32(Val) -> <<16#02, Val:32/big>>;
 serprop(content_type, Val) ->                      <<16#03, (bin(Val))/binary>>;
 serprop(response_topic, Val) ->                    <<16#08, (topic_bin(Val))/binary>>;
 serprop(correlation_data, Val) ->                  <<16#09, (bin(Val))/binary>>;
+serprop(subscription_identifier, Vs) when is_list(Vs) ->
+    lists:map(fun(V) -> <<16#0B, (varint(V))/binary>> end, Vs);
 serprop(subscription_identifier, Val) ->           <<16#0B, (varint(Val))/binary>>;
 serprop(session_expiry_interval, Val) when ?i32(Val) -> <<16#11, Val:32/big>>;
 serprop(assigned_client_identifier, Val) ->        <<16#12, (bin(Val))/binary>>;

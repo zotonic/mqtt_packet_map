@@ -132,7 +132,7 @@ The (optional) properties of a package are represented as a map.
 
 Known properties have an atom as key, user properties a binary.
 
-Below is an example map with all properties and one user (`<<"myuserprop">>`) property. The values are random and
+Below is an example map with all properties and one user (`<<"myuserprop">>`) property. The example values are random and
 have no bearing in reality.
 
 ```Erlang
@@ -167,6 +167,7 @@ have no bearing in reality.
 }.
 ```
 
+The `subscription_identifier` can be present multiple times, making it either a single integer or a list of integers.
 
 CONNECT
 -------

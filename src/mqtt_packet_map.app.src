@@ -1,6 +1,6 @@
 {application, mqtt_packet_map, [
     {description, "MQTT v5 packet encoder and decoder"},
-    {vsn, "1.0.0-alpha1"},
+    {vsn, "git"},
     {registered, []},
     {applications, [ kernel, stdlib ]},
     {env, []},

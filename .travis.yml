@@ -1,11 +1,12 @@
 language: erlang
 otp_release:
-  - 20.2
-  - 19.0
+  - 21.0.5
+  - 20.3
+  - 19.3
 jobs:
   include:
     - stage: deploy
-      otp_release: 20.2
+      otp_release: 20.3
       script: skip
       deploy:
         provider: script

@@ -1,6 +1,5 @@
 [![Build Status](https://travis-ci.org/zotonic/mqtt_packet_map.svg?branch=master)](https://travis-ci.org/zotonic/mqtt_packet_map)
 
-
 MQTT Packet Encoder and Decoder
 ===============================
 

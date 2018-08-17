@@ -1,11 +1,12 @@
 language: erlang
 otp_release:
-  - 20.2
-  - 19.0
+  - 21.0.5
+  - 20.3
+  - 19.3
 jobs:
   include:
     - stage: deploy
-      otp_release: 20.2
+      otp_release: 20.3
       script: skip
       deploy:
         provider: script
@@ -16,9 +17,6 @@ jobs:
           all_branches: true
 script: make clean test
 sudo: false
-branches:
-  only:
-    - master
 notifications:
   email:
     recipients:

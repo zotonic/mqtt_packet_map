@@ -293,10 +293,14 @@ serprop(shared_subscription_available, Val) ->     <<16#2A, (bool(Val)):8>>.
 
 topic_bin(B) when is_binary(B) ->
     bin(B);
-topic_bin([ H ]) when is_binary(H) ->
-    bin(H);
+topic_bin([ H ]) ->
+    bin( topic_bin_1(H) );
 topic_bin([ H | T ]) when is_binary(H) ->
-    bin( iolist_to_binary([ H, [ [ $/, S ] || S <- T ] ]) ).
+    bin( iolist_to_binary([ topic_bin_1(H), [ [ $/, topic_bin_1(S) ] || S <- T ] ]) ).
+
+topic_bin_1(B) when is_binary(B) -> B;
+topic_bin_1(N) when is_integer(N) -> integer_to_binary(N);
+topic_bin_1(A) when is_atom(A) -> atom_to_binary(A, utf8).
 
 bin(undefined) ->
     bin(<<>>);

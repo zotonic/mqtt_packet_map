@@ -30,6 +30,7 @@
     ]).
 
 -include("mqtt_packet_map_defs.hrl").
+-include("mqtt_packet_map.hrl").
 
 -type decode_return() :: {ok, {mqtt_encoder:mqtt_packet(), binary()}} | {error, mqtt_encoder:decode_error()}.
 
@@ -144,7 +145,7 @@ variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big,
         payload => Payload
     }};
 variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
-    when P =:= ?PUBACK; P =:= ?PUBREC; P =:= ?PUBREL; P =:= ?PUBCOMP ->
+    when P =:= ?PUBACK; P =:= ?PUBREC; P =:= ?PUBCOMP ->
     {ReasonCode, Properties} = case MQTTVersion of
         ?MQTTv5 ->
             <<RC:8, Rest1/binary>> = Rest,
@@ -157,9 +158,23 @@ variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
         type => case P of
                     ?PUBACK -> 'puback';
                     ?PUBREC -> 'pubrec';
-                    ?PUBREL -> 'pubrel';
                     ?PUBCOMP -> 'pubcomp'
                 end,
+        packet_id => PacketId,
+        reason_code => ReasonCode,
+        properties => Properties
+    }};
+variable(MQTTVersion, <<?PUBREL:4, 2:4>>, <<PacketId:16/big, Rest/binary>>) ->
+    {ReasonCode, Properties} = case MQTTVersion of
+        ?MQTTv5 ->
+            <<RC:8, Rest1/binary>> = Rest,
+            {Ps, <<>>} = parse_properties(Rest1),
+            {RC, Ps};
+        _ when Rest =:= <<>> ->
+            {?MQTT_RC_SUCCESS, #{}}
+    end,
+    {ok, #{
+        type => 'pubrel',
         packet_id => PacketId,
         reason_code => ReasonCode,
         properties => Properties

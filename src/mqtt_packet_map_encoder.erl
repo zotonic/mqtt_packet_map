@@ -100,7 +100,7 @@ encode(MQTTVersion, #{ type := publish } = Msg) ->
     Fixed = << ?PUBLISH:4, (bool(dup, Msg)):1, QoS:2, (bool(retain, Msg)):1 >>,
     packet(Fixed, Variable);
 encode(MQTTVersion, #{ type := P } = Msg)
-    when P =:= puback; P =:= pubrec; P =:= pubrel; P =:= pubcomp ->
+    when P =:= puback; P =:= pubrec; P =:= pubcomp ->
     Variable = [
         << (maps:get(packet_id, Msg, 0)):16/big >>,
         case MQTTVersion of
@@ -119,6 +119,19 @@ encode(MQTTVersion, #{ type := P } = Msg)
         pubcomp -> ?PUBCOMP
     end,
     packet(<<TP:4, 0:4>>, Variable);
+encode(MQTTVersion, #{ type := pubrel } = Msg) ->
+    Variable = [
+        << (maps:get(packet_id, Msg, 0)):16/big >>,
+        case MQTTVersion of
+            ?MQTTv5 ->
+                [
+                    << (maps:get(reason_code, Msg, 0)):8 >>,
+                    serialize_properties(Msg)
+                ];
+            _ ->  <<>>
+        end
+    ],
+    packet(<<?PUBREL:4, 2:4>>, Variable);
 encode(MQTTVersion, #{ type := subscribe } = Msg) ->
     Variable = [
         << (maps:get(packet_id, Msg, 0)):16/big >>,

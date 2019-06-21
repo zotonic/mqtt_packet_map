@@ -147,12 +147,14 @@ variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big,
 variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
     when P =:= ?PUBACK; P =:= ?PUBREC; P =:= ?PUBCOMP ->
     {ReasonCode, Properties} = case MQTTVersion of
+        ?MQTTv5 when Rest =:= <<>> ->
+            {?MQTT_RC_SUCCESS, #{}};
         ?MQTTv5 ->
             <<RC:8, Rest1/binary>> = Rest,
             {Ps, <<>>} = parse_properties(Rest1),
             {RC, Ps};
         _ when Rest =:= <<>> ->
-            {undefined, #{}}
+            {?MQTT_RC_SUCCESS, #{}}
     end,
     {ok, #{
         type => case P of
@@ -166,6 +168,8 @@ variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
     }};
 variable(MQTTVersion, <<?PUBREL:4, 2:4>>, <<PacketId:16/big, Rest/binary>>) ->
     {ReasonCode, Properties} = case MQTTVersion of
+        ?MQTTv5 when Rest =:= <<>> ->
+            {?MQTT_RC_SUCCESS, #{}};
         ?MQTTv5 ->
             <<RC:8, Rest1/binary>> = Rest,
             {Ps, <<>>} = parse_properties(Rest1),

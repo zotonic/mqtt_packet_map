@@ -105,10 +105,17 @@ encode(MQTTVersion, #{ type := P } = Msg)
         << (maps:get(packet_id, Msg, 0)):16/big >>,
         case MQTTVersion of
             ?MQTTv5 ->
-                [
-                    << (maps:get(reason_code, Msg, 0)):8 >>,
-                    serialize_properties(Msg)
-                ];
+                RC = maps:get(reason_code, Msg, 0),
+                Ps = maps:size( maps:get(properties, Msg, #{}) ),
+                if
+                    RC =:= 0, Ps =:= 0 ->
+                        <<>>;
+                    true ->
+                        [
+                            << RC:8 >>,
+                            serialize_properties(Msg)
+                        ]
+                end;
             _ ->  <<>>
         end
     ],
@@ -124,10 +131,17 @@ encode(MQTTVersion, #{ type := pubrel } = Msg) ->
         << (maps:get(packet_id, Msg, 0)):16/big >>,
         case MQTTVersion of
             ?MQTTv5 ->
-                [
-                    << (maps:get(reason_code, Msg, 0)):8 >>,
-                    serialize_properties(Msg)
-                ];
+                RC = maps:get(reason_code, Msg, 0),
+                Ps = maps:size( maps:get(properties, Msg, #{}) ),
+                if
+                    RC =:= 0, Ps =:= 0 ->
+                        <<>>;
+                    true ->
+                        [
+                            << RC:8 >>,
+                            serialize_properties(Msg)
+                        ]
+                end;
             _ ->  <<>>
         end
     ],

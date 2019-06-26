@@ -515,8 +515,9 @@ disconnect_v5(_Config) ->
     #{
         type := disconnect,
         reason_code := 0,
-        properties := #{}
+        properties := Ps
     } = M,
+    0 = maps:size(Ps),
     {ok, B1} = mqtt_packet_map:encode( #{
         type => disconnect,
         reason_code => 16#81,
@@ -532,6 +533,21 @@ disconnect_v5(_Config) ->
             <<"foo">> := <<"bar">>
         }
     } = M1,
+    {ok, B2} = mqtt_packet_map:encode( #{
+        type => disconnect,
+        reason_code => 0,
+        properties => #{
+            <<"foo">> => <<"bar">>
+        }
+    } ),
+    {ok, {M2, <<>>}} = mqtt_packet_map:decode(B2),
+    #{
+        type := disconnect,
+        reason_code := 0,
+        properties := #{
+            <<"foo">> := <<"bar">>
+        }
+    } = M2,
     ok.
 
 auth_v5(_Config) ->

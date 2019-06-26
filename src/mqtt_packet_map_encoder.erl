@@ -193,8 +193,8 @@ encode(_MQTTVersion, #{ type := pingresp }) ->
 encode(MQTTVersion, #{ type := disconnect } = Msg) ->
     ReasonCode = maps:get(reason_code, Msg, 0),
     Properties = maps:get(properties, Msg, #{}),
-    Variable = case {ReasonCode, Properties} of
-        {0, #{}} ->
+    Variable = case {ReasonCode, maps:size(Properties)} of
+        {0, 0} ->
             <<>>;
         _ ->
             [
@@ -209,8 +209,8 @@ encode(MQTTVersion, #{ type := disconnect } = Msg) ->
 encode(?MQTTv5, #{ type := auth } = Msg) ->
     ReasonCode = maps:get(reason_code, Msg, 0),
     Properties = maps:get(properties, Msg, #{}),
-    Variable = case {ReasonCode, Properties} of
-        {0, #{}} ->
+    Variable = case {ReasonCode, maps:size(Properties)} of
+        {0, 0} ->
             <<>>;
         _ ->
             [

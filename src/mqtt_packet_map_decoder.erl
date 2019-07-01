@@ -76,46 +76,45 @@ variable(_MQTTVersion,
            PropsRest/binary>>) ->
     case protocol_name_level(ProtocolName, ProtocolLevel) of
         {true, ProtoVersion} ->
-            {Properties, Rest} = case ProtoVersion of
-                ?MQTTv5 -> parse_properties(PropsRest);
-                _ -> {#{}, PropsRest}
-            end,
+            {ok, {Properties, Rest}} = parse_properties(ProtoVersion, PropsRest),
             {ClientId, Rest1} = parse_utf(Rest),
-            {WillProperties, Rest2} = case ProtoVersion of
-                ?MQTTv5 when WillFlag =:= 1 -> parse_properties(Rest1);
-                _ -> {#{}, Rest1}
+            {ok, {WillProperties, Rest2}} = case WillFlag of
+                1 -> parse_properties(ProtoVersion, Rest1);
+                0 -> {ok, {#{}, Rest1}}
             end,
             {WillTopic,   Rest3} = parse_utf(Rest2, WillFlag),
             {WillPayload, Rest4} = parse_msg(Rest3, WillFlag),
             {Username,    Rest5} = parse_utf(Rest4, UserNameFlag),
             {Password,    <<>>}  = parse_utf(Rest5, PasswordFlag),
-            {ok, #{
-                type => 'connect',
-                protocol_name => ProtocolName,
-                protocol_version => ProtoVersion,
-                client_id => ClientId,
-                clean_start => bool(CleanStart),
-                keep_alive => KeepAlive,
-                properties => Properties,
-                username => Username,
-                password => Password,
-                will_flag => bool(WillFlag),
-                will_retain => bool(WillRetain),
-                will_qos => qos(WillQos),
-                will_properties => WillProperties,
-                will_topic => split_topic(WillTopic),
-                will_payload => WillPayload
-            }};
+            case split_topic(WillTopic) of
+                {ok, WillTopicValidated} ->
+                    {ok, #{
+                        type => 'connect',
+                        protocol_name => ProtocolName,
+                        protocol_version => ProtoVersion,
+                        client_id => ClientId,
+                        clean_start => bool(CleanStart),
+                        keep_alive => KeepAlive,
+                        properties => Properties,
+                        username => Username,
+                        password => Password,
+                        will_flag => bool(WillFlag),
+                        will_retain => bool(WillRetain),
+                        will_qos => qos(WillQos),
+                        will_properties => WillProperties,
+                        will_topic => WillTopicValidated,
+                        will_payload => WillPayload
+                    }};
+                {error, _} = Error ->
+                    Error
+            end;
         false ->
             {error, unknown_protocol}
     end;
 variable(_MQTTVersion, <<?CONNECT:4, 0:4>>, <<L:16/big, _PMagic:L/binary, _/binary>>) ->
     {error, unknown_protocol};
 variable(MQTTVersion, <<?CONNACK:4, 0:4>>, <<0:7, SessionPresent:1, ConnectReason:8, Rest/binary>>) ->
-    {Properties, <<>>} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
+    {ok, {Properties, <<>>}} = parse_properties(MQTTVersion, Rest),
     {ok, #{
         type => 'connack',
         session_present => bool(SessionPresent),
@@ -130,20 +129,27 @@ variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big,
             <<PId:16/big, R/binary>> = Rest,
             {PId, R}
     end,
-    {Properties, Payload} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest2);
-        _ -> {#{}, Rest2}
-    end,
-    {ok, #{
-        type => 'publish',
-        dup => bool(Dup),
-        qos => qos(QoS),
-        retain => bool(Retain),
-        topic => split_topic(Topic),
-        packet_id => PacketId,
-        properties => Properties,
-        payload => Payload
-    }};
+    {ok, {Properties, Payload}} = parse_properties(MQTTVersion, Rest2),
+    case split_topic(Topic) of
+        {ok, TopicValidated} ->
+            case mqtt_packet_map_topic:is_wildcard_topic(TopicValidated) of
+                false ->
+                    {ok, #{
+                        type => 'publish',
+                        dup => bool(Dup),
+                        qos => qos(QoS),
+                        retain => bool(Retain),
+                        topic => TopicValidated,
+                        packet_id => PacketId,
+                        properties => Properties,
+                        payload => Payload
+                    }};
+                true ->
+                    {error, invalid_topic}
+            end;
+        {error, _} = Error ->
+            Error
+    end;
 variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
     when P =:= ?PUBACK; P =:= ?PUBREC; P =:= ?PUBCOMP ->
     {ReasonCode, Properties} = case MQTTVersion of
@@ -151,7 +157,7 @@ variable(MQTTVersion, <<P:4, 0:4>>, <<PacketId:16/big, Rest/binary>>)
             {?MQTT_RC_SUCCESS, #{}};
         ?MQTTv5 ->
             <<RC:8, Rest1/binary>> = Rest,
-            {Ps, <<>>} = parse_properties(Rest1),
+            {ok, {Ps, <<>>}} = parse_properties(Rest1),
             {RC, Ps};
         _ when Rest =:= <<>> ->
             {?MQTT_RC_SUCCESS, #{}}
@@ -172,7 +178,7 @@ variable(MQTTVersion, <<?PUBREL:4, 2:4>>, <<PacketId:16/big, Rest/binary>>) ->
             {?MQTT_RC_SUCCESS, #{}};
         ?MQTTv5 ->
             <<RC:8, Rest1/binary>> = Rest,
-            {Ps, <<>>} = parse_properties(Rest1),
+            {ok, {Ps, <<>>}} = parse_properties(Rest1),
             {RC, Ps};
         _ when Rest =:= <<>> ->
             {?MQTT_RC_SUCCESS, #{}}
@@ -184,22 +190,20 @@ variable(MQTTVersion, <<?PUBREL:4, 2:4>>, <<PacketId:16/big, Rest/binary>>) ->
         properties => Properties
     }};
 variable(MQTTVersion, <<?SUBSCRIBE:4, 0:2, 1:1, 0:1>>, <<PacketId:16/big, Rest/binary>>) ->
-    {Properties, Rest1} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
-    Topics = parse_subscribe_topics(Rest1, []),
-    {ok, #{
-        type => 'subscribe',
-        packet_id => PacketId,
-        topics => Topics,
-        properties => Properties
-    }};
+    {ok, {Properties, Rest1}} = parse_properties(MQTTVersion, Rest),
+    case parse_subscribe_topics(Rest1, []) of
+        {ok, Topics} ->
+            {ok, #{
+                type => 'subscribe',
+                packet_id => PacketId,
+                topics => Topics,
+                properties => Properties
+            }};
+        {error, _} = Error ->
+            Error
+    end;
 variable(MQTTVersion, <<?SUBACK:4, 0:4>>, <<PacketId:16/big, Rest/binary>>) ->
-    {Properties, Rest1} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
+    {ok, {Properties, Rest1}} = parse_properties(MQTTVersion, Rest),
     Acks = parse_acks(Rest1, []),
     {ok, #{
         type => 'suback',
@@ -208,22 +212,20 @@ variable(MQTTVersion, <<?SUBACK:4, 0:4>>, <<PacketId:16/big, Rest/binary>>) ->
         acks => Acks
     }};
 variable(MQTTVersion, <<?UNSUBSCRIBE:4, 0:2, 1:1, 0:1>>, <<PacketId:16/big, Rest/binary>>) ->
-    {Properties, Rest1} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
-    Topics = parse_unsubscribe_topics(Rest1, []),
-    {ok, #{
-        type => 'unsubscribe',
-        packet_id => PacketId,
-        properties => Properties,
-        topics => Topics
-    }};
+    {ok, {Properties, Rest1}} = parse_properties(MQTTVersion, Rest),
+    case parse_unsubscribe_topics(Rest1, []) of
+        {ok, Topics} ->
+            {ok, #{
+                type => 'unsubscribe',
+                packet_id => PacketId,
+                properties => Properties,
+                topics => Topics
+            }};
+        {error, _} = Error ->
+            Error
+    end;
 variable(MQTTVersion, <<?UNSUBACK:4, 0:4>>, <<PacketId:16/big, Rest/binary>>) ->
-    {Properties, Rest1} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
+    {ok, {Properties, Rest1}} = parse_properties(MQTTVersion, Rest),
     Acks = parse_unacks(Rest1, []),
     {ok, #{
         type => 'unsuback',
@@ -246,10 +248,7 @@ variable(_MQTTVersion, <<?DISCONNECT:4, 0:4>>, <<>>) ->
         properties => #{}
     }};
 variable(MQTTVersion, <<?DISCONNECT:4, 0:4>>, <<Reason:8, Rest/binary>>) ->
-    {Properties, <<>>} = case MQTTVersion of
-        ?MQTTv5 -> parse_properties(Rest);
-        _ -> {#{}, Rest}
-    end,
+    {ok, {Properties, <<>>}} = parse_properties(MQTTVersion, Rest),
     {ok, #{
         type => 'disconnect',
         reason_code => Reason,
@@ -261,8 +260,8 @@ variable(?MQTTv5, <<?AUTH:4, 0:4>>, <<>>) ->
         reason_code => 0,
         properties => #{}
     }};
-variable(?MQTTv5, <<?AUTH:4, 0:4>>, <<Reason:8, Rest/binary>>) ->
-    {Properties, <<>>} = parse_properties(Rest),
+variable(?MQTTv5 = MQTTVersion, <<?AUTH:4, 0:4>>, <<Reason:8, Rest/binary>>) ->
+    {ok, {Properties, <<>>}} = parse_properties(MQTTVersion, Rest),
     {ok, #{
         type => 'auth',
         reason_code => Reason,
@@ -286,24 +285,35 @@ protocol_name_level(_, _) -> false.
 
 
 parse_subscribe_topics(<<>>, Topics) ->
-    lists:reverse(Topics);
+    {ok, lists:reverse(Topics)};
 parse_subscribe_topics(Bin, Topics) ->
     {Name, OptRest} = parse_utf(Bin),
     <<0:2, RH:2, RAP:1, NL:1, QoS:2, Rest/binary>> = OptRest,
-    T = #{
-        topic => split_topic(Name),
-        retain_handling => RH,
-        retain_as_published => bool(RAP),
-        no_local => bool(NL),
-        qos => qos(QoS)
-    },
-    parse_subscribe_topics(Rest, [ T | Topics ]).
+    case split_topic(Name) of
+        {ok, NameValidated} ->
+            T = #{
+                topic => NameValidated,
+                retain_handling => RH,
+                retain_as_published => bool(RAP),
+                no_local => bool(NL),
+                qos => qos(QoS)
+            },
+            parse_subscribe_topics(Rest, [ T | Topics ]);
+        {error, _} = Error ->
+            Error
+    end.
 
 parse_unsubscribe_topics(<<>>, Topics) ->
-    lists:reverse(Topics);
+    {ok, lists:reverse(Topics)};
 parse_unsubscribe_topics(Bin, Topics) ->
     {Name, Rest} = parse_utf(Bin),
-    parse_unsubscribe_topics(Rest, [ split_topic(Name) | Topics ]).
+    case split_topic(Name) of
+        {ok, NameValidated} ->
+            parse_unsubscribe_topics(Rest, [ NameValidated | Topics ]);
+        {error, _} = Error ->
+            Error
+    end.
+
 
 parse_acks(<<>>, Acks) ->
     lists:reverse(Acks);
@@ -327,15 +337,25 @@ parse_unacks(<<Reason:8, Rest/binary>>, Acks) when Reason >= 16#80 ->
 %% emqttd is: (c) 2013-2017 EMQ Enterprise, Inc. (http://emqtt.io)
 %%%%%
 
+parse_properties(?MQTTv5, PropsRest) ->
+    parse_properties(PropsRest);
+parse_properties(_ProtoVersion, PropsRest) ->
+    {ok, {#{}, PropsRest}}.
+
 parse_properties(<<>>) ->
-    {#{}, <<>>};
+    {ok, {#{}, <<>>}};
 parse_properties(Bin) ->
     {Len, Bin1} = parse_varint(Bin),
     <<PropBin:Len/binary, Rest/binary>> = Bin1,
-    {parse_property(PropBin, #{}), Rest}.
+    case parse_property(PropBin, #{}) of
+        {ok, Props} ->
+            {ok, {Props, Rest}};
+        {error, _} = Error ->
+            Error
+    end.
 
 parse_property(<<>>, Props) ->
-    Props;
+    {ok, Props};
 parse_property(<<16#01, Val:8, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'payload_format_indicator' => bool(Val) });
 parse_property(<<16#02, Val:32/big, Rest/binary>>, Props) ->
@@ -345,7 +365,12 @@ parse_property(<<16#03, Bin/binary>>, Props) ->
     parse_property(Rest, Props#{ 'content_type' => Val });
 parse_property(<<16#08, Bin/binary>>, Props) ->
     {Val, Rest} = parse_utf(Bin),
-    parse_property(Rest, Props#{ 'response_topic' => split_topic(Val) });
+    case split_topic(Val) of
+        {ok, TopicValidated} ->
+            parse_property(Rest, Props#{ 'response_topic' => TopicValidated });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#09, Bin/binary>>, Props) ->
     {Val, Rest} = parse_bin(Bin),
     parse_property(Rest, Props#{ 'correlation_data' => Val });
@@ -422,9 +447,9 @@ parse_varint(<<1:1, I:7, Rest/binary>>, Shift, Value) ->
     parse_varint(Rest, Shift + 7, Value + (I bsl Shift)).
 
 split_topic(undefined) ->
-    undefined;
+    {ok, undefined};
 split_topic(Topic) ->
-    binary:split(Topic, <<"/">>, [global]).
+    mqtt_packet_map_topic:validate_topic(Topic).
 
 parse_utf_pair(Bin) ->
     {Key, Bin1} = parse_utf(Bin),

@@ -52,10 +52,10 @@ encode(MQTTVersion, #{ type := connect } = Msg) ->
             true ->
                 [
                     case MQTTVersion of
-                        ?MQTTv5 -> serialize_properties(Msg, will_properties);
+                        ?MQTTv5 -> serialize_properties_key(Msg, will_properties);
                         _ -> <<>>
                     end,
-                    topic_bin(maps:get(will_topic, Msg)),
+                    topic_bin( mqtt_packet_map_topic:validate_topic_publish ( maps:get(will_topic, Msg) ) ),
                     bin(maps:get(will_payload, Msg, <<>>))
                 ];
             false ->
@@ -83,7 +83,7 @@ encode(MQTTVersion, #{ type := connack } = Msg) ->
 encode(MQTTVersion, #{ type := publish } = Msg) ->
     QoS = maps:get(qos, Msg, 0),
     Variable = [
-        topic_bin(maps:get(topic, Msg)),
+        topic_bin( mqtt_packet_map_topic:validate_topic_publish( maps:get(topic, Msg) ) ),
         case QoS of
             0 -> <<>>;
             _ -> << (maps:get(packet_id, Msg, 0)):16/big >>
@@ -238,7 +238,7 @@ serialize_subscribe_topic(#{ topic := Name } = T) ->
     NL = bool(no_local, T),
     QoS = maps:get(qos, T, 0),
     [
-        topic_bin(Name),
+        topic_bin( mqtt_packet_map_topic:validate_topic( Name ) ),
         << 0:2, RH:2, RAP:1, NL:1, QoS:2 >>
     ];
 serialize_subscribe_topic(T) when is_binary(T); is_list(T) ->
@@ -247,7 +247,7 @@ serialize_subscribe_topic(T) when is_binary(T); is_list(T) ->
 serialize_unsubscribe_topics(Topics) ->
     lists:map(
         fun(Topic) ->
-            topic_bin(Topic)
+            topic_bin( mqtt_packet_map_topic:validate_topic( Topic ) )
         end,
         Topics).
 
@@ -270,11 +270,11 @@ serialize_unacks(UnAcks) ->
 
 
 serialize_properties(Msg) ->
-    serialize_properties(Msg, properties).
+    serialize_properties_key(Msg, properties).
 
-serialize_properties(Msg, Props) ->
+serialize_properties_key(Msg, Props) ->
     Ser = maps:fold(
-        fun( K, V, Acc ) ->
+        fun(K, V, Acc) ->
             [ serprop(K, V) | Acc ]
         end,
         [],
@@ -290,7 +290,7 @@ serialize_properties(Msg, Props) ->
 serprop(payload_format_indicator, Val) ->          <<16#01, (bool(Val)):8>>;
 serprop(message_expiry_interval, Val) when ?i32(Val) -> <<16#02, Val:32/big>>;
 serprop(content_type, Val) ->                      <<16#03, (bin(Val))/binary>>;
-serprop(response_topic, Val) ->                    <<16#08, (topic_bin(Val))/binary>>;
+serprop(response_topic, Val) ->                    <<16#08, (topic_bin( mqtt_packet_map_topic:validate_topic_publish(Val) ))/binary>>;
 serprop(correlation_data, Val) ->                  <<16#09, (bin(Val))/binary>>;
 serprop(subscription_identifier, Vs) when is_list(Vs) ->
     lists:map(fun(V) -> <<16#0B, (varint(V))/binary>> end, Vs);
@@ -318,16 +318,10 @@ serprop(subscription_identifier_available, Val) -> <<16#29, (bool(Val)):8>>;
 serprop(shared_subscription_available, Val) ->     <<16#2A, (bool(Val)):8>>.
 
 
-topic_bin(B) when is_binary(B) ->
+topic_bin({ok, B}) when is_binary(B) ->
     bin(B);
-topic_bin([ H ]) ->
-    bin( topic_bin_1(H) );
-topic_bin([ H | T ]) when is_binary(H) ->
-    bin( iolist_to_binary([ topic_bin_1(H), [ [ $/, topic_bin_1(S) ] || S <- T ] ]) ).
-
-topic_bin_1(B) when is_binary(B) -> B;
-topic_bin_1(N) when is_integer(N) -> integer_to_binary(N);
-topic_bin_1(A) when is_atom(A) -> atom_to_binary(A, utf8).
+topic_bin({ok, L}) when is_list(L) ->
+    bin( mqtt_packet_map_topic:flatten_topic(L) ).
 
 bin(undefined) ->
     bin(<<>>);

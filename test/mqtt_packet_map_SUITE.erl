@@ -380,6 +380,32 @@ subscribe_v5(_Config) ->
     } = M1,
     ok.
 
+subscribe_v5_wildcard(_Config) ->
+    {ok, B} = mqtt_packet_map:encode( #{
+        type => subscribe,
+        topics => [
+            #{
+                topic => <<"foo1/+/bar/#">>
+            },
+            #{
+                topic => [ <<"foo2">>, '+', <<"bar">>, '#' ]
+            }
+        ]
+    } ),
+    {ok, {M, <<>>}} = mqtt_packet_map:decode(B),
+    #{
+        type := subscribe,
+        topics := [
+            #{
+                topic := [ <<"foo1">>, '+', <<"bar">>, '#' ]
+            },
+            #{
+                topic := [ <<"foo2">>, '+', <<"bar">>, '#' ]
+            }
+        ]
+    } = M,
+    ok.
+
 suback_v5(_Config) ->
     {ok, B} = mqtt_packet_map:encode( #{ type => suback, acks => [] } ),
     {ok, {M, <<>>}} = mqtt_packet_map:decode(B),

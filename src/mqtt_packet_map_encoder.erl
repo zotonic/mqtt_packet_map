@@ -122,7 +122,6 @@ encode(MQTTVersion, #{ type := P } = Msg)
     TP = case P of
         puback -> ?PUBACK;
         pubrec -> ?PUBREC;
-        pubrel -> ?PUBREL;
         pubcomp -> ?PUBCOMP
     end,
     packet(<<TP:4, 0:4>>, Variable);
@@ -318,8 +317,6 @@ serprop(subscription_identifier_available, Val) -> <<16#29, (bool(Val)):8>>;
 serprop(shared_subscription_available, Val) ->     <<16#2A, (bool(Val)):8>>.
 
 
-topic_bin({ok, B}) when is_binary(B) ->
-    bin(B);
 topic_bin({ok, L}) when is_list(L) ->
     bin( mqtt_packet_map_topic:flatten_topic(L) ).
 

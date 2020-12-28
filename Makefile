@@ -13,7 +13,13 @@ shell: $(REBAR)
 	$(REBAR) shell
 
 test: $(REBAR)
-	$(REBAR) ct --config rebar.test.config
+	$(REBAR) as test ct
+
+xref: $(REBAR)
+	$(REBAR) as test xref
+
+dialyzer: $(REBAR)
+	$(REBAR) as test dialyzer
 
 clean: $(REBAR)
 	$(REBAR) clean

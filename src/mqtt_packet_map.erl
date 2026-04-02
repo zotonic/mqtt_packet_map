@@ -34,7 +34,8 @@
 
 -type mqtt_version() :: undefined | ?MQTTv3 | ?MQTTv311 | ?MQTTv5.
 -type mqtt_packet() :: map().
--type mqtt_topic() :: list(binary() | integer() | '+' | '#') | binary().
+-type mqtt_topic_part() :: binary() | integer() | atom() | undefined | '+' | '#'.
+-type mqtt_topic() :: list(mqtt_topic_part()) | binary().
 -type decode_error() :: incomplete_packet
                       | malformed_header
                       | unknown_protocol
@@ -46,6 +47,7 @@
 -export_type([
     mqtt_version/0,
     mqtt_packet/0,
+    mqtt_topic_part/0,
     mqtt_topic/0,
     decode_error/0,
     packet_size_error/0

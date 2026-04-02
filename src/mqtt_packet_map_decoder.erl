@@ -32,10 +32,10 @@
 -include("mqtt_packet_map_defs.hrl").
 -include("mqtt_packet_map.hrl").
 
--type decode_return() :: {ok, {mqtt_encoder:mqtt_packet(), binary()}} | {error, mqtt_encoder:decode_error()}.
+-type decode_return() :: {ok, {mqtt_packet_map:mqtt_packet(), binary()}} | {error, mqtt_packet_map:decode_error()}.
 
 %% @doc Decode an incoming MQTT packet, returns a decoded packet or an error.
--spec decode( pmqtt_encoder:mqtt_version(), binary() ) -> decode_return().
+-spec decode( mqtt_packet_map:mqtt_version(), binary() ) -> decode_return().
 decode(MQTTVersion, <<Fixed:1/binary, 0:1, DataSize:7, VarData/binary>>) ->
     parse(MQTTVersion, DataSize, Fixed, VarData);
 decode(MQTTVersion, <<Fixed:1/binary, 1:1, L1:7, 0:1, L2:7, VarData/binary>>) ->
@@ -50,7 +50,7 @@ decode(_MQTTVersion, B) when is_binary(B) ->
     {error, incomplete_packet}.
 
 %% @doc Check if we have enough data to parse the whole control packet
--spec parse( mqtt_encoder:mqtt_version(), pos_integer(), binary(), binary() ) -> decode_return().
+-spec parse( mqtt_packet_map:mqtt_version(), pos_integer(), binary(), binary() ) -> decode_return().
 parse(MQTTVersion, VarSize, Fixed, VarData) when size(VarData) >= VarSize ->
     <<Var:VarSize/binary, Rest/binary>> = VarData,
     case variable(MQTTVersion, Fixed, Var) of
@@ -65,8 +65,8 @@ parse(_MQTTVersion, _VarSize, _Fixed, _VarData) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Parse control packets %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Parse the control packet
--spec variable( mqtt_encoder:mqtt_version(), Fixed::binary(), Variable::binary() ) ->
-        {ok, mqtt_encoder:mqtt_packet()} | {error, mqtt_encoder:decode_error()}.
+-spec variable( mqtt_packet_map:mqtt_version(), Fixed::binary(), Variable::binary() ) ->
+        {ok, mqtt_packet_map:mqtt_packet()} | {error, mqtt_packet_map:decode_error()}.
 variable(_MQTTVersion,
          <<?CONNECT:4, 0:4>>,
          <<ProtocolNameLen:16/big, ProtocolName:ProtocolNameLen/binary,

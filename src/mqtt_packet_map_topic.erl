@@ -98,7 +98,7 @@ normalize_topic_part(<<"+">>) -> '+';
 normalize_topic_part(<<"#">>) -> '#';
 normalize_topic_part(T) when is_integer(T) -> integer_to_binary(T);
 normalize_topic_part(T) when is_binary(T) -> T;
-normalize_topic_part(T) -> z_convert:to_binary(T).
+normalize_topic_part(T) -> mqtt_packet_map_convert:to_binary(T).
 
 %% @doc Recombine a normalized topic to a single binary string.
 -spec flatten_topic( mqtt_packet_map:mqtt_topic() ) -> binary().
@@ -126,4 +126,4 @@ is_wildcard(_) -> false.
 to_binary(B) when is_binary(B) -> B;
 to_binary('+') -> <<"+">>;
 to_binary('#') -> <<"#">>;
-to_binary(N) -> z_convert:to_binary(N).
+to_binary(N) -> mqtt_packet_map_convert:to_binary(N).

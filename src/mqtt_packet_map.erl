@@ -112,10 +112,10 @@ packet_size(<<>>) ->
 
 -spec remaining_length(binary(), non_neg_integer(), pos_integer(), non_neg_integer()) ->
     {ok, non_neg_integer(), pos_integer()} | incomplete | {error, malformed_packet}.
-remaining_length(<<>>, _Value, _Multiplier, _Count) ->
-    incomplete;
 remaining_length(_Rest, _Value, _Multiplier, Count) when Count >= 4 ->
     {error, malformed_packet};
+remaining_length(<<>>, _Value, _Multiplier, _Count) ->
+    incomplete;
 remaining_length(<<Byte:8, Rest/binary>>, Value, Multiplier, Count) ->
     Value1 = Value + ((Byte band 16#7f) * Multiplier),
     case Byte band 16#80 of

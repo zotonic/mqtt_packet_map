@@ -22,6 +22,7 @@ end_per_testcase(_TestCase, _Config) ->
 all() ->
     [
         variable_byte_integer,
+        packet_size,
         partial_packet,
         connect_v5,
         connect_v5_full,
@@ -53,6 +54,16 @@ variable_byte_integer(_Config) ->
     {128, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(128) ),
     {1234567890, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(1234567890) ),
     {16#7fffffff, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(16#7fffffff) ),
+    ok.
+
+packet_size(_Config) ->
+    incomplete = mqtt_packet_map:packet_size(<<>>),
+    incomplete = mqtt_packet_map:packet_size(<<16#10>>),
+    {ok, 4} = mqtt_packet_map:packet_size(<<16#10, 16#02, 16#00, 16#00>>),
+    ok = mqtt_packet_map:check_packet_size(<<16#10, 16#02, 16#00, 16#00>>, 4),
+    {error, packet_too_large} = mqtt_packet_map:check_packet_size(<<16#10, 16#02, 16#00, 16#00>>, 3),
+    {error, malformed_packet} = mqtt_packet_map:packet_size(<<16#10, 16#ff, 16#ff, 16#ff, 16#ff, 16#00>>),
+    {error, malformed_packet} = mqtt_packet_map:check_packet_size(<<16#10, 16#ff, 16#ff, 16#ff, 16#ff, 16#00>>, 16#0fffffff),
     ok.
 
 partial_packet(_Config) ->

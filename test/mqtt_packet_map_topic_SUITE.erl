@@ -45,12 +45,15 @@ validate_topic(_Config) ->
     % Type mappings
     {ok, [ '#' ]} = mqtt_packet_map_topic:validate_topic(<<"#">>),
     {ok, [ <<"model">>, <<"rsc">>, <<"1">> ]} = mqtt_packet_map_topic:validate_topic([ <<"model">>, <<"rsc">>, 1 ]),
+    {ok, [ <<"model">>, <<"rsc">>, <<"name">> ]} = mqtt_packet_map_topic:validate_topic([ model, <<"rsc">>, name ]),
+    {ok, [ <<"model">>, <<>>, <<"name">> ]} = mqtt_packet_map_topic:validate_topic([ model, undefined, name ]),
     ok.
 
 flatten_topic(_Config) ->
     <<"foo">> = mqtt_packet_map_topic:flatten_topic([ <<"foo">> ]),
     <<"/foo//bar">> = mqtt_packet_map_topic:flatten_topic([ <<>>, <<"foo">>, <<>>, <<"bar">> ]),
     <<"foo/+/bar/#">> = mqtt_packet_map_topic:flatten_topic([ <<"foo">>, '+', <<"bar">>, '#' ]),
+    <<"model//name">> = mqtt_packet_map_topic:flatten_topic([ model, undefined, name ]),
     ok.
 
 invalid_topic(_Config) ->

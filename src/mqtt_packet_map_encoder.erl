@@ -29,7 +29,7 @@
 
 -include("mqtt_packet_map_defs.hrl").
 
--spec encode( mqtt_encoder:mqtt_version(), mqtt_encoder:mqtt_packet() ) -> {ok, binary()} | {error, term()}.
+-spec encode( mqtt_packet_map:mqtt_version(), mqtt_packet_map:mqtt_packet() ) -> {ok, binary()} | {error, term()}.
 encode(MQTTVersion, #{ type := connect } = Msg) ->
     WillFlag = maps:get(will_flag, Msg, false),
     WillQoS = maps:get(will_qos, Msg, 0),

@@ -75,8 +75,15 @@ decode(MQTTVersion, Data) ->
 %% @doc Check if a binary contains a complete packet within the maximum packet size.
 -spec check_packet_size(binary(), pos_integer() | undefined) ->
     ok | incomplete | {error, packet_size_error()}.
-check_packet_size(_Data, undefined) ->
-    ok;
+check_packet_size(Data, undefined) ->
+    case packet_size(Data) of
+        {ok, _PacketSize} ->
+            ok;
+        {error, _} = Error ->
+            Error;
+        incomplete ->
+            incomplete
+    end;
 check_packet_size(Data, MaxPacketSize) ->
     case packet_size(Data) of
         {ok, PacketSize} when PacketSize =< MaxPacketSize ->

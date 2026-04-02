@@ -121,7 +121,7 @@ remaining_length(<<Byte:8, Rest/binary>>, Value, Multiplier, Count) ->
     case Byte band 16#80 of
         16#80 ->
             remaining_length(Rest, Value1, Multiplier * 128, Count + 1);
-        0 when Value1 > 268435455 ->
+        0 when Value1 > ?MAX_PACKET_SIZE ->
             {error, malformed_packet};
         0 ->
             {ok, Value1, Count + 1}

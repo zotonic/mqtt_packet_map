@@ -22,6 +22,7 @@ end_per_testcase(_TestCase, _Config) ->
 all() ->
     [
         variable_byte_integer,
+        malformed_variable_byte_integer,
         packet_size,
         partial_packet,
         connect_v5,
@@ -48,12 +49,28 @@ variable_byte_integer(_Config) ->
     <<16#7F>> = mqtt_packet_map_encoder:varint(127),
     <<16#80, 16#01>> = mqtt_packet_map_encoder:varint(128),
     <<16#80, 16#80, 16#80, 16#01>> = mqtt_packet_map_encoder:varint(2097152),
+    <<16#FF, 16#FF, 16#FF, 16#7F>> = mqtt_packet_map_encoder:varint(16#0fffffff),
+
     {0, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(0) ),
     {1, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(1) ),
     {127, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(127) ),
     {128, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(128) ),
-    {1234567890, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(1234567890) ),
-    {16#7fffffff, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(16#7fffffff) ),
+    {123456789, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(123456789) ),
+    {16#0fffffff, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(16#0fffffff) ),
+
+    ok.
+
+malformed_variable_byte_integer(_Config) ->
+    {error, incomplete_packet} = mqtt_packet_map_decoder:parse_varint(<<>>),
+
+    % non-minimal encodings
+    {error, malformed_packet} = mqtt_packet_map_decoder:parse_varint(<<16#80, 16#00>>),
+    {error, malformed_packet} = mqtt_packet_map_decoder:parse_varint(<<16#80, 16#80, 16#00>>),
+    {error, malformed_packet} = mqtt_packet_map_decoder:parse_varint(<<16#80, 16#80, 16#80, 16#00>>),
+
+    % varints can be 4 bytes long maximum
+    {error, malformed_packet} = mqtt_packet_map_decoder:parse_varint(<<16#FF, 16#FF, 16#FF, 16#FF, 16#7F>>),
+
     ok.
 
 packet_size(_Config) ->

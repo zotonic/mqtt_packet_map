@@ -29,10 +29,14 @@
     parse_varint/1
     ]).
 
+
+
 -include("mqtt_packet_map_defs.hrl").
 -include("mqtt_packet_map.hrl").
 
 -type decode_return() :: {ok, {mqtt_packet_map:mqtt_packet(), binary()}} | {error, mqtt_packet_map:decode_error()}.
+
+-define(MAX_VARINT_BYTES, 4).
 
 %% @doc Decode an incoming MQTT packet, returns a decoded packet or an error.
 -spec decode( mqtt_packet_map:mqtt_version(), binary() ) -> decode_return().
@@ -345,13 +349,17 @@ parse_properties(_ProtoVersion, PropsRest) ->
 parse_properties(<<>>) ->
     {ok, {#{}, <<>>}};
 parse_properties(Bin) ->
-    {Len, Bin1} = parse_varint(Bin),
-    <<PropBin:Len/binary, Rest/binary>> = Bin1,
-    case parse_property(PropBin, #{}) of
-        {ok, Props} ->
-            {ok, {Props, Rest}};
+    case parse_varint(Bin) of
         {error, _} = Error ->
-            Error
+            Error;
+        {Len, Bin1} ->
+            <<PropBin:Len/binary, Rest/binary>> = Bin1,
+            case parse_property(PropBin, #{}) of
+                {ok, Props} ->
+                    {ok, {Props, Rest}};
+                {error, _} = Error ->
+                    Error
+            end
     end.
 
 parse_property(<<>>, Props) ->
@@ -375,16 +383,20 @@ parse_property(<<16#09, Bin/binary>>, Props) ->
     {Val, Rest} = parse_bin(Bin),
     parse_property(Rest, Props#{ 'correlation_data' => Val });
 parse_property(<<16#0B, Bin/binary>>, Props) ->
-    {Val, Rest} = parse_varint(Bin),
-    Props1 = case maps:get('subscription_identifier', Props, undefined) of
-        undefined ->
-            Props#{ 'subscription_identifier' => Val };
-        Vs when is_list(Vs) ->
-            Props#{ 'subscription_identifier' => Vs ++ [ Val ] };
-        V when is_integer(V) ->
-            Props#{ 'subscription_identifier' => [ V, Val ] }
-    end,
-    parse_property(Rest, Props1);
+    case parse_varint(Bin) of
+        {error, _} = Error ->
+            Error;
+        {Val, Rest} ->
+            Props1 = case maps:get('subscription_identifier', Props, undefined) of
+                         undefined ->
+                             Props#{ 'subscription_identifier' => Val };
+                         Vs when is_list(Vs) ->
+                             Props#{ 'subscription_identifier' => Vs ++ [ Val ] };
+                         V when is_integer(V) ->
+                             Props#{ 'subscription_identifier' => [ V, Val ] }
+                     end,
+            parse_property(Rest, Props1)
+    end;
 parse_property(<<16#11, Val:32/big, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'session_expiry_interval' => Val });
 parse_property(<<16#12, Bin/binary>>, Props) ->
@@ -436,15 +448,20 @@ parse_property(<<16#29, Val:8, Rest/binary>>, Props) ->
 parse_property(<<16#2A, Val:8, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'shared_subscription_available' => bool(Val) }).
 
-
-
 parse_varint(B) ->
     parse_varint(B, 0, 0).
 
-parse_varint(<<0:1, I:7, Rest/binary>>, Shift, Value) ->
-    {Value + (I bsl Shift), Rest};
-parse_varint(<<1:1, I:7, Rest/binary>>, Shift, Value) ->
-    parse_varint(Rest, Shift + 7, Value + (I bsl Shift)).
+parse_varint(<<>>, _Count, _Value) ->
+    {error, incomplete_packet};
+parse_varint(<<0:1, 0:7, _Rest/binary>>, Count, _Value) when Count > 0 ->
+    {error, malformed_packet};
+parse_varint(<<0:1, I:7, Rest/binary>>, Count, Value) ->
+    {Value + (I bsl (Count * 7)), Rest};
+parse_varint(<<1:1, I:7, Rest/binary>>, Count, Value) when Count < (?MAX_VARINT_BYTES - 1) ->
+    parse_varint(Rest, Count + 1, Value + (I bsl (Count * 7)));
+parse_varint(<<1:1, _I:7, _Rest/binary>>, _Count, _Value) ->
+    {error, malformed_packet}.
+
 
 split_topic(undefined) ->
     {ok, undefined};

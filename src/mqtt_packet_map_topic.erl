@@ -107,13 +107,7 @@ flatten_topic(B) when is_binary(B) ->
 flatten_topic([]) ->
     <<>>;
 flatten_topic([ H | T ]) ->
-    flatten_topic_list(T, to_binary(H)).
-
-flatten_topic_list([], Acc) ->
-    Acc;
-flatten_topic_list([ H  | T ], Acc) ->
-    H1 = to_binary(H),
-    flatten_topic_list(T, <<Acc/binary, $/, H1/binary>>).
+    iolist_to_binary([ to_binary(H) | [ [$/, to_binary(P)] || P <- T ] ]).
 
 -spec is_wildcard_topic( list() ) -> boolean().
 is_wildcard_topic(L) ->

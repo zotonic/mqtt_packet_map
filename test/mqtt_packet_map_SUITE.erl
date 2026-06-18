@@ -51,12 +51,12 @@ variable_byte_integer(_Config) ->
     <<16#80, 16#80, 16#80, 16#01>> = mqtt_packet_map_encoder:varint(2097152),
     <<16#FF, 16#FF, 16#FF, 16#7F>> = mqtt_packet_map_encoder:varint(16#0fffffff),
 
-    {0, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(0) ),
-    {1, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(1) ),
-    {127, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(127) ),
-    {128, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(128) ),
-    {123456789, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(123456789) ),
-    {16#0fffffff, <<>>} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(16#0fffffff) ),
+    {ok, {0, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(0) ),
+    {ok, {1, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(1) ),
+    {ok, {127, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(127) ),
+    {ok, {128, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(128) ),
+    {ok, {123456789, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(123456789) ),
+    {ok, {16#0fffffff, <<>>}} = mqtt_packet_map_decoder:parse_varint( mqtt_packet_map_encoder:varint(16#0fffffff) ),
 
     ok.
 

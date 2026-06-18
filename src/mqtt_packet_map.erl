@@ -40,7 +40,9 @@
                       | malformed_header
                       | unknown_protocol
                       | invalid_packet
-                      | invalid_topic.
+                      | invalid_topic
+                      | malformed_packet
+                      | {unknown_property, integer()}.
 
 -type packet_size_error() :: malformed_packet | packet_too_large.
 

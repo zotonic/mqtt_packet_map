@@ -412,6 +412,7 @@ parse_subscribe_topics(Bin, Topics) ->
                 {error, _} = ErrT ->
                     ErrT
             end;
+        {ok, {_, <<>>}} -> {error, incomplete_packet};
         {ok, _} -> {error, malformed_packet};
         {error, _} = ErrUTF -> ErrUTF
     end.

@@ -363,7 +363,7 @@ decode_connect_will_topic(Bin, Connect, UserNameFlag, PasswordFlag) ->
     decode_connect_will_msg(Bin, Connect#{ will_topic => undefined }, UserNameFlag, PasswordFlag).
 
 decode_connect_will_msg(Bin, #{ will_flag := true } = Connect, UserNameFlag, PasswordFlag) ->
-    case parse_msg(Bin, 1) of
+    case parse_bin(Bin) of
         {ok, {WillPayload, Rest}} ->
             decode_connect_username(Rest, Connect#{ will_payload => WillPayload }, UserNameFlag, PasswordFlag);
         {error, _} = Err -> Err
@@ -612,8 +612,6 @@ parse_varint(<<1:1, _I:7, _Rest/binary>>, _Count, _Value) ->
     {error, malformed_packet}.
 
 
-split_topic(undefined) ->
-    {ok, undefined};
 split_topic(Topic) ->
     mqtt_packet_map_topic:validate_topic(Topic).
 
@@ -630,13 +628,6 @@ parse_utf_pair(Bin) ->
 parse_utf(<<Len:16/big, Str:Len/binary, Rest/binary>>) ->
     {ok, {Str, Rest}};
 parse_utf(Bin) when is_binary(Bin) ->
-    {error, incomplete_packet}.
-
-parse_msg(Bin, 0) ->
-    {ok, {undefined, Bin}};
-parse_msg(<<Len:16/big, Msg:Len/binary, Rest/binary>>, _) ->
-    {ok, {Msg, Rest}};
-parse_msg(Bin, _) when is_binary(Bin) ->
     {error, incomplete_packet}.
 
 parse_bin(<<Len:16/big, Bin:Len/binary, Rest/binary>>) ->

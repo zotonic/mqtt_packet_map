@@ -594,9 +594,39 @@ parse_property(<<16#29, Val:8, Rest/binary>>, Props) ->
 parse_property(<<16#2A, Val:8, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'shared_subscription_available' => bool(Val) });
 parse_property(<<ID:8, _/binary>>, _Props) ->
-    {error, {unknown_property, ID}};
-parse_property(<<>>, _Props) ->
-    {error, incomplete_packet}.
+    case is_known_property(ID) of
+        true -> {error, incomplete_packet};
+        false -> {error, {unknown_property, ID}}
+    end.
+
+is_known_property(16#01) -> true;
+is_known_property(16#02) -> true;
+is_known_property(16#03) -> true;
+is_known_property(16#08) -> true;
+is_known_property(16#09) -> true;
+is_known_property(16#0B) -> true;
+is_known_property(16#11) -> true;
+is_known_property(16#12) -> true;
+is_known_property(16#13) -> true;
+is_known_property(16#15) -> true;
+is_known_property(16#16) -> true;
+is_known_property(16#17) -> true;
+is_known_property(16#18) -> true;
+is_known_property(16#19) -> true;
+is_known_property(16#1A) -> true;
+is_known_property(16#1C) -> true;
+is_known_property(16#1F) -> true;
+is_known_property(16#21) -> true;
+is_known_property(16#22) -> true;
+is_known_property(16#23) -> true;
+is_known_property(16#24) -> true;
+is_known_property(16#25) -> true;
+is_known_property(16#26) -> true;
+is_known_property(16#27) -> true;
+is_known_property(16#28) -> true;
+is_known_property(16#29) -> true;
+is_known_property(16#2A) -> true;
+is_known_property(_) -> false.
 
 parse_varint(B) ->
     parse_varint(B, 0, 0).

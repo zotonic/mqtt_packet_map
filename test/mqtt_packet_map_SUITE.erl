@@ -89,6 +89,9 @@ partial_packet(_Config) ->
     {ok, {_, <<1,2,3>>}} = mqtt_packet_map:decode(<<240,2,0,0,1,2,3>>),
     {error, malformed_packet} = mqtt_packet_map:decode(<<16#82, 8, 0, 1, 0, 0, 3, "foo">>),
     {error, incomplete_packet} = mqtt_packet_map:decode(<<16#82, 9, 0, 1, 0, 0, 3, "foo">>),
+    {error, malformed_packet} = mqtt_packet_map:decode(<<16#E0, 5, 0, 3, 16#11, 0, 0>>),
+    {error, incomplete_packet} = mqtt_packet_map:decode(<<16#E0, 6, 0, 3, 16#11, 0, 0>>),
+    {error, {unknown_property, 16#99}} = mqtt_packet_map:decode(<<16#E0, 5, 0, 3, 16#99, 0, 0>>),
     ok.
 
 connect_v5(_Config) ->

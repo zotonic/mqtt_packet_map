@@ -106,17 +106,20 @@ variable(_MQTTVersion,
 variable(_MQTTVersion, <<?CONNECT:4, 0:4>>, <<L:16/big, _PMagic:L/binary, _/binary>>) ->
     {error, unknown_protocol};
 variable(MQTTVersion, <<?CONNACK:4, 0:4>>, <<0:7, SessionPresent:1, ConnectReason:8, Rest/binary>>) ->
-    case {parse_properties(MQTTVersion, Rest), parse_bool(SessionPresent)} of
-        {{ok, {Properties, <<>>}}, {ok, SessionPresent1}} ->
+    case parse_properties(MQTTVersion, Rest) of
+        {ok, {Properties, <<>>}} ->
+            % Note, parse_bool can never return an error tuple here, because there is a one bit input (0|1)
+            {ok, SessionPresent1} = parse_bool(SessionPresent),
             {ok, #{
                    type => 'connack',
                    session_present => SessionPresent1,
                    reason_code => ConnectReason,
                    properties => Properties
                   }};
-        {{error, _} = Error, _} -> Error;
-        {_, {error, _} = Error} -> Error;
-        {_, _} -> {error, malformed_packet}
+        {error, _} = Error ->
+            Error;
+        _ ->
+            {error, malformed_packet}
     end;
 variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big, Topic:TopicLen/binary, Rest/binary>>) ->
     {PacketId, Rest2} = case QoS of

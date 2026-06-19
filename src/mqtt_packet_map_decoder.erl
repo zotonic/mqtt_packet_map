@@ -84,32 +84,39 @@ variable(_MQTTVersion,
            PropsRest/binary>>) ->
     case protocol_name_level(ProtocolName, ProtocolLevel) of
         {true, ProtoVersion} ->
-            Connect = #{
-                type => 'connect',
-                protocol_name => ProtocolName,
-                protocol_version => ProtoVersion,
-                clean_start => bool(CleanStart),
-                keep_alive => KeepAlive,
-                will_flag => bool(WillFlag),
-                will_retain => bool(WillRetain),
-                will_qos => qos(WillQos)
-            },
-            decode_connect_properties(PropsRest, Connect, UserNameFlag, PasswordFlag);
+            case {parse_bool(CleanStart), parse_bool(WillFlag), parse_bool(WillRetain), parse_qos(WillQos)} of
+                {{ok, CleanStart1}, {ok, WillFlag1}, {ok, WillRetain1}, {ok, WillQos1}} ->
+                    Connect = #{
+                                type => 'connect',
+                                protocol_name => ProtocolName,
+                                protocol_version => ProtoVersion,
+                                clean_start => CleanStart1,
+                                keep_alive => KeepAlive,
+                                will_flag => WillFlag1,
+                                will_retain => WillRetain1,
+                                will_qos => WillQos1
+                               },
+                    decode_connect_properties(PropsRest, Connect, UserNameFlag, PasswordFlag);
+                _ ->
+                    {error, malformed_packet}
+            end;
         false ->
             {error, unknown_protocol}
     end;
 variable(_MQTTVersion, <<?CONNECT:4, 0:4>>, <<L:16/big, _PMagic:L/binary, _/binary>>) ->
     {error, unknown_protocol};
 variable(MQTTVersion, <<?CONNACK:4, 0:4>>, <<0:7, SessionPresent:1, ConnectReason:8, Rest/binary>>) ->
-    case parse_properties(MQTTVersion, Rest) of
-        {ok, {Properties, <<>>}} ->
+    case {parse_properties(MQTTVersion, Rest), parse_bool(SessionPresent)} of
+        {{ok, {Properties, <<>>}}, {ok, SessionPresent1}} ->
             {ok, #{
-                type => 'connack',
-                session_present => bool(SessionPresent),
-                reason_code => ConnectReason,
-                properties => Properties
-            }};
-        {error, _} = Err -> Err
+                   type => 'connack',
+                   session_present => SessionPresent1,
+                   reason_code => ConnectReason,
+                   properties => Properties
+                  }};
+        {{error, _} = Error, _} -> Error;
+        {_, {error, _} = Error} -> Error;
+        {_, _} -> {error, malformed_packet}
     end;
 variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big, Topic:TopicLen/binary, Rest/binary>>) ->
     {PacketId, Rest2} = case QoS of
@@ -130,16 +137,21 @@ variable(MQTTVersion, <<?PUBLISH:4, Dup:1, QoS:2, Retain:1>>, <<TopicLen:16/big,
                         {ok, TopicValidated} ->
                             case mqtt_packet_map_topic:is_wildcard_topic(TopicValidated) of
                                 false ->
-                                    {ok, #{
-                                        type => 'publish',
-                                        dup => bool(Dup),
-                                        qos => qos(QoS),
-                                        retain => bool(Retain),
-                                        topic => TopicValidated,
-                                        packet_id => PacketId,
-                                        properties => Properties,
-                                        payload => Payload
-                                    }};
+                                    case {parse_bool(Dup), parse_qos(QoS), parse_bool(Retain)} of
+                                        {{ok, Dup1}, {ok, QoS1}, {ok, Retain1}} ->
+                                            {ok, #{
+                                                   type => 'publish',
+                                                   dup => Dup1,
+                                                   qos => QoS1,
+                                                   retain => Retain1,
+                                                   topic => TopicValidated,
+                                                   packet_id => PacketId,
+                                                   properties => Properties,
+                                                   payload => Payload
+                                                  }};
+                                        _ ->
+                                            {error, malformed_packet}
+                                    end;
                                 true ->
                                     {error, invalid_topic}
                             end;
@@ -401,14 +413,19 @@ parse_subscribe_topics(Bin, Topics) ->
         {ok, {Name, <<0:2, RH:2, RAP:1, NL:1, QoS:2, Rest/binary>>}} ->
             case split_topic(Name) of
                 {ok, NameValidated} ->
-                    T = #{
-                        topic => NameValidated,
-                        retain_handling => RH,
-                        retain_as_published => bool(RAP),
-                        no_local => bool(NL),
-                        qos => qos(QoS)
-                    },
-                    parse_subscribe_topics(Rest, [ T | Topics ]);
+                    case {parse_bool(RAP), parse_bool(NL), parse_qos(QoS)} of
+                        {{ok, RAP1}, {ok, NL1}, {ok, QoS1}} ->
+                            T = #{
+                                  topic => NameValidated,
+                                  retain_handling => RH,
+                                  retain_as_published => RAP1,
+                                  no_local => NL1,
+                                  qos => QoS1
+                                 },
+                            parse_subscribe_topics(Rest, [ T | Topics ]);
+                        _ ->
+                            {error, malformed_packet}
+                    end;
                 {error, _} = ErrT ->
                     ErrT
             end;
@@ -435,7 +452,12 @@ parse_unsubscribe_topics(Bin, Topics) ->
 parse_acks(<<>>, Acks) ->
     {ok, lists:reverse(Acks)};
 parse_acks(<<0:6, QoS:2, Rest/binary>>, Acks) ->
-    parse_acks(Rest, [ {ok, qos(QoS)} | Acks]);
+    case parse_qos(QoS) of
+        {ok, QoS1} ->
+            parse_acks(Rest, [ {ok, QoS1} | Acks]);
+        {error, _} = Err ->
+            Err
+    end;
 parse_acks(<<Reason:8, Rest/binary>>, Acks) ->
     parse_acks(Rest, [ {error, Reason} | Acks]);
 parse_acks(_, _) ->
@@ -490,7 +512,12 @@ parse_property(<<>>, Props) ->
              end,
     {ok, Props1};
 parse_property(<<16#01, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'payload_format_indicator' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, PFI} ->
+            parse_property(Rest, Props#{ 'payload_format_indicator' => PFI });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#02, Val:32/big, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'message_expiry_interval' => Val });
 parse_property(<<16#03, Bin/binary>>, Props) ->
@@ -549,11 +576,21 @@ parse_property(<<16#16, Bin/binary>>, Props) ->
         {error, _} = ErrBin -> ErrBin
     end;
 parse_property(<<16#17, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{'request_problem_information' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, RPI} ->
+            parse_property(Rest, Props#{'request_problem_information' => RPI });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#18, Val:32/big, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'will_delay_interval' => Val });
 parse_property(<<16#19, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'request_response_information' => bool(Val)});
+    case parse_bool(Val) of
+        {ok, RRI} ->
+            parse_property(Rest, Props#{ 'request_response_information' => RRI });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#1A, Bin/binary>>, Props) ->
     case parse_utf(Bin) of
         {ok, {Val, Rest}} -> parse_property(Rest, Props#{ 'response_information' => Val });
@@ -578,7 +615,12 @@ parse_property(<<16#23, Val:16/big, Rest/binary>>, Props) ->
 parse_property(<<16#24, Val:8, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'maximum_qos' => Val });
 parse_property(<<16#25, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'retain_available' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, RA} ->
+            parse_property(Rest, Props#{ 'retain_available' => RA });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#26, Bin/binary>>, Props) ->
     % User properties use binary keys in the properties map
     case parse_utf_pair(Bin) of
@@ -588,11 +630,26 @@ parse_property(<<16#26, Bin/binary>>, Props) ->
 parse_property(<<16#27, Val:32/big, Rest/binary>>, Props) ->
     parse_property(Rest, Props#{ 'maximum_packet_size' => Val });
 parse_property(<<16#28, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'wildcard_subscription_available' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, WSA} ->
+            parse_property(Rest, Props#{ 'wildcard_subscription_available' => WSA });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#29, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'subscription_identifier_available' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, SIA} ->
+            parse_property(Rest, Props#{ 'subscription_identifier_available' => SIA });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<16#2A, Val:8, Rest/binary>>, Props) ->
-    parse_property(Rest, Props#{ 'shared_subscription_available' => bool(Val) });
+    case parse_bool(Val) of
+        {ok, SSA} ->
+            parse_property(Rest, Props#{ 'shared_subscription_available' => SSA });
+        {error, _} = Error ->
+            Error
+    end;
 parse_property(<<ID:8, _/binary>>, _Props) ->
     case is_known_property(ID) of
         true -> {error, incomplete_packet};
@@ -642,7 +699,6 @@ parse_varint(<<1:1, I:7, Rest/binary>>, Count, Value) when Count < (?MAX_VARINT_
 parse_varint(<<1:1, _I:7, _Rest/binary>>, _Count, _Value) ->
     {error, malformed_packet}.
 
-
 split_topic(Topic) ->
     mqtt_packet_map_topic:validate_topic(Topic).
 
@@ -666,9 +722,12 @@ parse_bin(<<Len:16/big, Bin:Len/binary, Rest/binary>>) ->
 parse_bin(Bin) when is_binary(Bin) ->
     {error, incomplete_packet}.
 
-bool(0) -> false;
-bool(1) -> true.
+parse_bool(0) -> {ok, false};
+parse_bool(1) -> {ok, true};
+parse_bool(_) -> {error, malformed_packet}.
 
-qos(0) -> 0;
-qos(1) -> 1;
-qos(2) -> 2.
+parse_qos(0) -> {ok, 0};
+parse_qos(1) -> {ok, 1};
+parse_qos(2) -> {ok, 2};
+parse_qos(_) -> {error, malformed_packet}.
+
